@@ -1,0 +1,11 @@
+bison and re2c test
+y 2343
+z 4894302
+.
++ = - * / % < >
+{} ==
+var myvar=42;
+
+while(myvar>0){
+    if(myvar%3==4)return;
+}
