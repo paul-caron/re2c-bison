@@ -1,5 +1,3 @@
-
-
 %{
 #include <iostream>
 #include <string>
@@ -16,12 +14,18 @@ std::ifstream input_stream;
 
 %token <std::string> IDENTIFIER
 %token <int> INTEGER
-%token PLUS MINUS MULT DIV MODULO EQUAL GREATER LESSER ASSIGN
-%token COLON SEMICOLON
-%token LEFTCURLY RIGHTCURLY
-%token LEFTPAR RIGHTPAR
+
 %token WHILE IF VAR  RETURN
+%token LEFTCURLY RIGHTCURLY
+
+%token PLUS MINUS MULT DIV MODULO EQUAL GREATER LESSER ASSIGN
+%token LEFTPAR RIGHTPAR
+
+%token COLON SEMICOLON
 %token <std::string> OTHER
+
+%left PLUS MINUS MULT DIV MODULO EQUAL GREATER LESSER
+%right ASSIGN
 
 %code{
 namespace yy{
@@ -33,7 +37,7 @@ parser::symbol_type yylex(){
     if(!input.size()) return parser::make_YYEOF();
     const char * start = input.c_str();
     const char * YYCURSOR = start, * YYMARKER;
-
+    
     int len = input.size();
     auto putback = [&YYCURSOR, &len](){
         while(*YYCURSOR){
@@ -52,6 +56,10 @@ parser::symbol_type yylex(){
         
 
     *          {return parser::make_OTHER(input);}
+    "while"    {putback(); return parser::make_WHILE();}
+    "if"       {putback(); return parser::make_IF();}
+    "return"   {putback(); return parser::make_RETURN();}
+    "var"      {putback(); return parser::make_VAR();}
     [0-9]+     {putback(); return parser::make_INTEGER(strtoll(input.c_str(),0,10));}
     [a-zA-Z_]+  {putback(); return parser::make_IDENTIFIER(input.substr(0,len));}
     "+"        {putback(); return parser::make_PLUS();}
@@ -69,10 +77,7 @@ parser::symbol_type yylex(){
     "}"        {putback(); return parser::make_RIGHTCURLY();}
     "("        {putback(); return parser::make_LEFTPAR();}
     ")"        {putback(); return parser::make_RIGHTPAR();}
-    "var"      {putback(); return parser::make_VAR();}      
-    "while"    {putback(); return parser::make_WHILE();}
-    "if"       {putback(); return parser::make_IF();}
-    "return"   {putback(); return parser::make_RETURN();}
+
 
 
 */
@@ -83,36 +88,41 @@ parser::symbol_type yylex(){
 
 %%
 
-line:
-|    line input
+function:
+    IDENTIFIER statement {std::cout << "function" << std::endl;}
+
+statement:
+    compound_statement RIGHTCURLY {}
+|   expression SEMICOLON {}
+|   IF LEFTPAR expression RIGHTPAR statement {}
+|   WHILE LEFTPAR expression RIGHTPAR statement {}
+|   RETURN SEMICOLON {}
+|   RETURN expression SEMICOLON {}
+|   VAR IDENTIFIER SEMICOLON {}
+|   SEMICOLON {}
 ;
 
-
-
-input:
-    INTEGER     {std::cout << "number: " << $1 << std::endl;}
-|   IDENTIFIER  {std::cout << "identifier: " << $1 << std::endl;}
-|   PLUS        {std::cout << "plus" << std::endl;}
-|   MINUS       {std::cout << "minus" << std::endl;}
-|   MULT        {std::cout << "mult" << std::endl;}
-|   DIV         {std::cout << "div" << std::endl;}
-|   MODULO      {std::cout << "modulo" << std::endl;}
-|   EQUAL       {std::cout << "equal" << std::endl;}
-|   GREATER     {std::cout << "greater" << std::endl;}
-|   LESSER      {std::cout << "lesser" << std::endl;}
-|   ASSIGN      {std::cout << "assign" << std::endl;}
-|   SEMICOLON   {std::cout << "semicolon" << std::endl;}
-|   COLON       {std::cout << "colon" << std::endl;}
-|   LEFTCURLY   {std::cout << "left curly bracket" << std::endl;}
-|   RIGHTCURLY  {std::cout << "right curly bracket" << std::endl;}
-|   LEFTPAR     {std::cout << "left par" << std::endl;}
-|   RIGHTPAR    {std::cout << "right par" << std::endl;}
-|   VAR         {std::cout << "var" << std::endl;}
-|   WHILE       {std::cout << "while" << std::endl;}
-|   IF          {std::cout << "if" << std::endl;}
-|   RETURN      {std::cout << "return" << std::endl;}
-|   OTHER       {yy::parser::error($1 + " cannot be parsed");}
+compound_statement:
+    LEFTCURLY
+|   compound_statement statement
 ;
+
+expression:
+    INTEGER
+|   IDENTIFIER
+|   expression PLUS expression
+|   expression MINUS expression
+|   expression MULT expression
+|   expression DIV expression
+|   expression MODULO expression
+|   expression EQUAL expression
+|   expression ASSIGN expression
+|   expression LESSER expression
+|   expression GREATER expression
+|   LEFTPAR expression RIGHTPAR
+
+;
+
 
 %%
 
@@ -130,4 +140,5 @@ int main(int argc, char ** argv){
     parse();
     return 0;
 }
+
 
