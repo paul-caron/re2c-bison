@@ -88,6 +88,10 @@ parser::symbol_type yylex(){
 
 %%
 
+library:
+    %empty
+|   library function
+
 function:
     IDENTIFIER statement {std::cout << "function" << std::endl;}
 
