@@ -1,11 +1,23 @@
-bison and re2c test
-y 2343
-z 4894302
-.
-+ = - * / % < >
-{} ==
-var myvar=42;
 
-while(myvar>0){
-    if(myvar%3==4)return;
+func{
+    var a;
+    a = 42 ;
+    return;
+}
+
+
+main{
+    while(a==1){
+        var a;
+        var b;
+        var c;
+        {
+            a=42;
+            b=64;
+        }
+        ;
+
+        c=a+b;
+    }
+    return 0;
 }
