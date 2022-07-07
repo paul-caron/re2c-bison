@@ -1,3 +1,4 @@
+
 %{
 #include <iostream>
 #include <string>
@@ -12,6 +13,7 @@ std::ifstream input_stream;
 
 
 enum EXPRESSION{
+    NONE,
     INTEGER,
     IDENTIFIER,
     ASSIGN,
@@ -28,7 +30,10 @@ enum EXPRESSION{
 
 struct Expression{
     enum EXPRESSION type;
-    std::list<struct Expression> child_expressions; 
+    std::list<struct Expression> child_expressions;
+    //terminal values
+    int integer_value;
+    std::string string_value; 
 };
 
 enum STATEMENT{
@@ -40,6 +45,19 @@ enum STATEMENT{
     EXPSTAT,
     COMPOUND,
     NOP
+};
+
+std::map<enum STATEMENT, std::string> statement_names{
+    {RETURN, "return"},{RETURNVAL, "returnval"},{WHILE, "while"},
+    {IF, "if"},{VAR, "var"},{EXPSTAT, "exp_statement"}, {COMPOUND, "compound"},
+    {NOP, "nop"}
+};
+
+std::map<enum EXPRESSION, std::string> expression_names{
+    {INTEGER, "integer"},{IDENTIFIER,"identifier"},{ASSIGN, "assign"},
+    {PLUS,"plus"},{MINUS, "minus"},{MULT,"mult"},{DIV, "div"},{MODULO, "modulo"},
+    {EQUAL, "equal"}, {LESSER, "lesser"}, {GREATER, "greater"},
+    {PARENTHESIS, "parenthesis"}
 };
 
 struct Statement{
@@ -54,6 +72,31 @@ struct Function{
     std::list<std::string> params;
 };
 
+void print_expression(struct Expression e, int indent=4){
+    std::cout << std::string(indent, ' ') << expression_names[e.type] << std::endl;
+    if(e.type == INTEGER){
+        std::cout << std::string(indent+4,' ') << e.integer_value << std::endl;
+    }
+    if(e.type == IDENTIFIER){
+        std::cout << std::string(indent+4,' ') << e.string_value << std::endl;
+    }
+    for(auto child: e.child_expressions){
+        print_expression(child, indent+4);
+    }
+}
+
+void print_statement(struct Statement s, int indent=4){
+
+    std::cout << std::string(indent, ' ') << statement_names[s.type] << std::endl;
+
+    if(s.expression.type != NONE){
+        print_expression(s.expression, indent+4);
+    }
+
+    for(auto child: s.child_statements){
+        print_statement(child, indent+4);
+    }
+}
 
 %}
 
@@ -155,20 +198,7 @@ result:
             for(auto param: function.params){
                 std::cout<<"    "<<param<<std::endl;
             }
-            std::cout<<"    "<<function.statement.type<<std::endl;
-            for(auto c: function.statement.child_statements){
-            std::cout <<"        "<< c.type << std::endl;
-            for(auto cc: c.child_statements){
-            std::cout <<"            "<< cc.type << std::endl;
-            for(auto ccc: cc.child_statements){
-            std::cout <<"                "<< ccc.type << std::endl;
-            for(auto cccc: ccc.child_statements){
-            std::cout <<"                    "<< cccc.type << std::endl;
-
-            }            
-            }            
-             }
-            }            
+            print_statement(function.statement, 4);
         }
     }
 ;
@@ -191,12 +221,12 @@ params:
 
 statement:
     compound_statement RIGHTCURLY {$$ = $1; $$.type = COMPOUND;}
-|   expression SEMICOLON {$$ = {EXPSTAT};}
-|   IF LEFTPAR expression RIGHTPAR statement {$$ = {IF};$$.child_statements.push_back($5);}
-|   WHILE LEFTPAR expression RIGHTPAR statement {$$ = {WHILE};$$.child_statements.push_back($5);}
+|   expression SEMICOLON {$$ = {EXPSTAT}; $$.expression = $1;}
+|   IF LEFTPAR expression RIGHTPAR statement {$$ = {IF};$$.child_statements.push_back($5);$$.expression=$3;}
+|   WHILE LEFTPAR expression RIGHTPAR statement {$$ = {WHILE};$$.child_statements.push_back($5);$$.expression=$3;}
 |   RETURN SEMICOLON {$$ = {RETURN};}
-|   RETURN expression SEMICOLON {$$ = {RETURNVAL};}
-|   VAR IDENTIFIER SEMICOLON {$$ = {VAR};}
+|   RETURN expression SEMICOLON {$$ = {RETURNVAL};$$.expression=$2;}
+|   VAR IDENTIFIER SEMICOLON {$$ = {VAR};$$.expression.type=IDENTIFIER;$$.expression.string_value=$2;}
 |   SEMICOLON {$$ = {NOP};}
 ;
 
@@ -206,7 +236,7 @@ compound_statement:
 ;
 
 expression:
-    INTEGER {$$={INTEGER};}
+    INTEGER {$$={INTEGER};$$.integer_value=$1;}
 |   expression ASSIGN expression {$$={ASSIGN};$$.child_expressions.push_back($1);$$.child_expressions.push_back($3);}
 |   expression PLUS expression {$$={PLUS};$$.child_expressions.push_back($1);$$.child_expressions.push_back($3);}
 |   expression MINUS expression {$$={MINUS};$$.child_expressions.push_back($1);$$.child_expressions.push_back($3);}
@@ -217,7 +247,7 @@ expression:
 |   expression LESSER expression {$$={LESSER};$$.child_expressions.push_back($1);$$.child_expressions.push_back($3);}
 |   expression GREATER expression {$$={GREATER};$$.child_expressions.push_back($1);$$.child_expressions.push_back($3);}
 |   LEFTPAR expression RIGHTPAR {$$={PARENTHESIS};}
-|   IDENTIFIER {$$={IDENTIFIER};}
+|   IDENTIFIER {$$={IDENTIFIER};$$.string_value=$1;}
 
 ;
 
@@ -236,11 +266,6 @@ int main(int argc, char ** argv){
     }
     yy::parser parse;
     parse();
-
-    #ifdef DEBUG
-    
-    #endif
-    
     
 
     return 0;
