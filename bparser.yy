@@ -2,8 +2,58 @@
 #include <iostream>
 #include <string>
 #include <fstream>
+#include <map>
+#include <list>
+#include <iomanip>
+
+
 
 std::ifstream input_stream;
+
+
+enum EXPRESSION{
+    INTEGER,
+    IDENTIFIER,
+    ASSIGN,
+    PLUS,
+    MINUS,
+    MULT,
+    DIV,
+    MODULO,
+    EQUAL,
+    LESSER,
+    GREATER,
+    PARENTHESIS
+};
+
+struct Expression{
+    enum EXPRESSION type;
+    std::list<struct Expression> child_expressions; 
+};
+
+enum STATEMENT{
+    RETURN,
+    RETURNVAL,
+    WHILE,
+    IF,
+    VAR,
+    EXPSTAT,
+    COMPOUND,
+    NOP
+};
+
+struct Statement{
+    enum STATEMENT type;
+    std::list<Statement> child_statements;
+    struct Expression expression;
+};
+
+struct Function{
+    std::string identifier;
+    struct Statement statement;
+    std::list<std::string> params;
+};
+
 
 %}
 
@@ -24,8 +74,11 @@ std::ifstream input_stream;
 %token COLON SEMICOLON
 %token <std::string> OTHER
 
-%left PLUS MINUS MULT DIV MODULO EQUAL GREATER LESSER
-%right ASSIGN
+%right ASSIGN 
+%left EQUAL GREATER LESSER
+%left PLUS MINUS
+%left MULT DIV MODULO
+%left LEFTPAR RIGHTPAR
 
 %code{
 namespace yy{
@@ -61,7 +114,6 @@ parser::symbol_type yylex(){
     "return"   {putback(); return parser::make_RETURN();}
     "var"      {putback(); return parser::make_VAR();}
     [0-9]+     {putback(); return parser::make_INTEGER(strtoll(input.c_str(),0,10));}
-    [a-zA-Z_]+  {putback(); return parser::make_IDENTIFIER(input.substr(0,len));}
     "+"        {putback(); return parser::make_PLUS();}
     "-"        {putback(); return parser::make_MINUS();}
     "*"        {putback(); return parser::make_MULT();}
@@ -77,6 +129,7 @@ parser::symbol_type yylex(){
     "}"        {putback(); return parser::make_RIGHTCURLY();}
     "("        {putback(); return parser::make_LEFTPAR();}
     ")"        {putback(); return parser::make_RIGHTPAR();}
+    [a-zA-Z_]+  {putback(); return parser::make_IDENTIFIER(input.substr(0,len));}
 
 
 
@@ -88,42 +141,83 @@ parser::symbol_type yylex(){
 
 %%
 
+%nterm <struct Expression> expression;
+%nterm <struct Statement> statement;
+%nterm <struct Statement> compound_statement;
+%nterm <struct Function> function;
+%nterm <std::list<struct Function>> library;
+%nterm <std::list<std::string>> params;
+
+result:
+    library {
+        for(auto function: $1){
+            std::cout<<function.identifier<<std::endl;
+            for(auto param: function.params){
+                std::cout<<"    "<<param<<std::endl;
+            }
+            std::cout<<"    "<<function.statement.type<<std::endl;
+            for(auto c: function.statement.child_statements){
+            std::cout <<"        "<< c.type << std::endl;
+            for(auto cc: c.child_statements){
+            std::cout <<"            "<< cc.type << std::endl;
+            for(auto ccc: cc.child_statements){
+            std::cout <<"                "<< ccc.type << std::endl;
+            for(auto cccc: ccc.child_statements){
+            std::cout <<"                    "<< cccc.type << std::endl;
+
+            }            
+            }            
+             }
+            }            
+        }
+    }
+;
+
 library:
-    %empty
-|   library function
+    %empty {$$=std::list<Function>();}
+|   library function {$$ = $1; $$.push_back($2);}
+;
 
 function:
-    IDENTIFIER statement {std::cout << "function" << std::endl;}
+    IDENTIFIER statement {$$ = {$1,$2};}
+|   IDENTIFIER LEFTPAR params RIGHTPAR statement {$$ = {$1,$5,$3};}
+;
+
+params:
+    %empty {$$ = std::list<std::string>();}
+|   params COLON IDENTIFIER {$$ = $1; $$.push_back($3);}
+;
+
 
 statement:
-    compound_statement RIGHTCURLY {}
-|   expression SEMICOLON {}
-|   IF LEFTPAR expression RIGHTPAR statement {}
-|   WHILE LEFTPAR expression RIGHTPAR statement {}
-|   RETURN SEMICOLON {}
-|   RETURN expression SEMICOLON {}
-|   VAR IDENTIFIER SEMICOLON {}
-|   SEMICOLON {}
+    compound_statement RIGHTCURLY {$$ = $1; $$.type = COMPOUND;}
+|   expression SEMICOLON {$$ = {EXPSTAT};}
+|   IF LEFTPAR expression RIGHTPAR statement {$$ = {IF};$$.child_statements.push_back($5);}
+|   WHILE LEFTPAR expression RIGHTPAR statement {$$ = {WHILE};$$.child_statements.push_back($5);}
+|   RETURN SEMICOLON {$$ = {RETURN};}
+|   RETURN expression SEMICOLON {$$ = {RETURNVAL};}
+|   VAR IDENTIFIER SEMICOLON {$$ = {VAR};}
+|   SEMICOLON {$$ = {NOP};}
 ;
 
 compound_statement:
-    LEFTCURLY
-|   compound_statement statement
+    LEFTCURLY {}
+|   compound_statement statement {$$ = $1; $$.child_statements.push_back($2);}
 ;
 
 expression:
-    INTEGER
-|   IDENTIFIER
-|   expression PLUS expression
-|   expression MINUS expression
-|   expression MULT expression
-|   expression DIV expression
-|   expression MODULO expression
-|   expression EQUAL expression
-|   expression ASSIGN expression
-|   expression LESSER expression
-|   expression GREATER expression
-|   LEFTPAR expression RIGHTPAR
+    INTEGER {$$={INTEGER};}
+|   expression ASSIGN expression {$$={ASSIGN};$$.child_expressions.push_back($1);$$.child_expressions.push_back($3);}
+|   expression PLUS expression {$$={PLUS};$$.child_expressions.push_back($1);$$.child_expressions.push_back($3);}
+|   expression MINUS expression {$$={MINUS};$$.child_expressions.push_back($1);$$.child_expressions.push_back($3);}
+|   expression MULT expression {$$={MULT};$$.child_expressions.push_back($1);$$.child_expressions.push_back($3);}
+|   expression DIV expression {$$={DIV};$$.child_expressions.push_back($1);$$.child_expressions.push_back($3);}
+|   expression MODULO expression {$$={MODULO};$$.child_expressions.push_back($1);$$.child_expressions.push_back($3);}
+|   expression EQUAL expression {$$={EQUAL};$$.child_expressions.push_back($1);$$.child_expressions.push_back($3);}
+|   expression LESSER expression {$$={LESSER};$$.child_expressions.push_back($1);$$.child_expressions.push_back($3);}
+|   expression GREATER expression {$$={GREATER};$$.child_expressions.push_back($1);$$.child_expressions.push_back($3);}
+|   LEFTPAR expression RIGHTPAR {$$={PARENTHESIS};}
+|   IDENTIFIER {$$={IDENTIFIER};}
 
 ;
 
@@ -142,6 +236,13 @@ int main(int argc, char ** argv){
     }
     yy::parser parse;
     parse();
+
+    #ifdef DEBUG
+    
+    #endif
+    
+    
+
     return 0;
 }
 
